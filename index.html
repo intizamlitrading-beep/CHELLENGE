@@ -43,6 +43,17 @@ td{white-space:nowrap}td input{width:92px;text-align:center;padding:5px;backgrou
 .chart{height:320px;margin-top:10px}
 .bar{height:10px;background:rgba(255,255,255,.1);border-radius:6px;overflow:hidden;margin-top:10px}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2))}
+.card.win{border-color:var(--gold);display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+#ov{position:fixed;inset:0;z-index:100;display:none;align-items:center;justify-content:center;background:rgba(3,6,14,.84);padding:20px;box-sizing:border-box;font-family:Georgia,serif}
+#ov.on{display:flex}
+#fw{position:absolute;inset:0;width:100%;height:100%}
+.msg{position:relative;text-align:center;max-width:760px;background:rgba(9,14,26,.7);border:2px solid var(--gold);border-radius:18px;padding:28px 22px;animation:pop .7s cubic-bezier(.2,1.4,.4,1)}
+.big{font-size:clamp(30px,7vw,60px);font-weight:700;color:var(--gold2);letter-spacing:.04em;text-shadow:0 0 24px rgba(240,205,110,.6)}
+.msg p{font-size:clamp(16px,3vw,24px);margin:14px 0 0;line-height:1.4}
+.msg p.g{color:var(--gold2)}
+.msg button{margin-top:22px;background:var(--gold);color:#1a1405;border-color:var(--gold);font-size:16px;padding:11px 26px}
+@keyframes pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.msg{animation:none}}
 .sub{font-size:13px;color:var(--mute)}
 </style>
 </head>
@@ -74,12 +85,14 @@ td{white-space:nowrap}td input{width:92px;text-align:center;padding:5px;backgrou
     <tbody id="tb"></tbody></table></div></section>
 
   <section class="panel" id="p-stats">
+    <div class="card win" id="winBox" style="display:none"><b>🏆 Maqset orınlandı! Qutlıqlaymız!</b><button onclick="celebrate()">Qutlıqlawdı qaytadan kórsetiw</button></div>
     <div class="kpis" id="kpis"></div>
     <div class="card"><b>Kúnlik ósiw</b><div class="sub" id="note"></div><div class="chart"><canvas id="chart"></canvas></div></div>
     <div class="card"><b>Challenge barısı</b><div class="sub" id="prog"></div><div class="bar"><i id="pb" style="width:0"></i></div></div>
   </section>
 </div>
 
+<div id="ov"><canvas id="fw"></canvas><div class="msg"><div class="big">QUTLIQLAYMIZ!!!</div><p>SIZ BELGILENGEN MAQSETIŃIZGE JETTIŃIZ</p><p class="g">SOL INTIZAM MENEN DAWAM ETIŃ</p><button onclick="closeCel()">Dawam etiw</button></div></div>
 <script>
 const MAX=365, KEY='it_challenge_v2';
 const LBL={pending:'Kútilmekte ⏳',success:'Orınlandı ✅',warning:'Az payda ⚠️',loss:'Ziyan ❌'};
@@ -128,7 +141,27 @@ function renderStats(){
   chart.data.datasets[1].data=s.plan;
   chart.update();
 }
-function refresh(){compute();save();renderTable();renderStats()}
+let won=false,inited=false;
+function checkWin(){const s=stats();const ok=s.n>0&&s.now>=s.plan[N()-1]-1e-9;const was=won;won=ok;
+  $('winBox').style.display=ok?'flex':'none';if(ok&&!was&&inited)celebrate()}
+function refresh(){compute();save();renderTable();renderStats();checkWin();inited=true}
+/* Salyut */
+const fc=$('fw'),fx=fc.getContext('2d'),reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let rockets=[],parts=[],raf=0,lastL=0;
+function fit(){fc.width=innerWidth;fc.height=innerHeight}
+function launch(){rockets.push({x:fc.width*(.1+Math.random()*.8),y:fc.height,vy:-(fc.height/95)*(.8+Math.random()*.4),ty:fc.height*(.12+Math.random()*.35),c:Math.random()*360|0})}
+function boom(x,y,h){const n=reduce?24:80;for(let i=0;i<n;i++){const a=Math.PI*2*i/n,v=1+Math.random()*4.2;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:1,h:h+(Math.random()*40-20)})}}
+function loop(t){
+  if(!$('ov').classList.contains('on'))return;
+  fx.globalCompositeOperation='destination-out';fx.fillStyle='rgba(0,0,0,.22)';fx.fillRect(0,0,fc.width,fc.height);
+  fx.globalCompositeOperation='lighter';
+  if(t-lastL>(reduce?1100:420)){launch();lastL=t}
+  rockets=rockets.filter(r=>{r.y+=r.vy;r.vy*=.985;fx.fillStyle='hsl('+r.c+',100%,70%)';fx.fillRect(r.x-1.5,r.y,3,8);if(r.y<=r.ty){boom(r.x,r.y,r.c);return false}return true});
+  parts=parts.filter(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.045;p.vx*=.99;p.l-=.011;if(p.l<=0)return false;fx.fillStyle='hsla('+p.h+',100%,60%,'+p.l+')';fx.beginPath();fx.arc(p.x,p.y,2.2,0,6.283);fx.fill();return true});
+  raf=requestAnimationFrame(loop)}
+function celebrate(){fit();rockets=[];parts=[];$('ov').classList.add('on');for(let i=0;i<3;i++)launch();raf=requestAnimationFrame(loop)}
+function closeCel(){$('ov').classList.remove('on');cancelAnimationFrame(raf)}
+addEventListener('resize',()=>{if($('ov').classList.contains('on'))fit()});
 function setU(i,v){const n=parseFloat(String(v).replace(',','.'));st.usd[i]=(v===''||isNaN(n))?null:n;refresh()}
 function resetAll(){if(!confirm('Barlıq kúnlik belgiler óshiriledi. Dawam etemiz be?'))return;st.usd=Array(MAX).fill(null);refresh()}
 function bind(){
